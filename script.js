@@ -56,6 +56,8 @@ pitchCards.forEach((card) => {
   const list = card.querySelector(".pitch-list");
   const toggle = card.querySelector(".pitch-toggle");
 
+  toggle.textContent = "View presentations";
+
   presentations.forEach((presentation) => {
     const item = document.createElement("li");
     const separator = presentation.indexOf(" — ");
@@ -75,7 +77,7 @@ pitchCards.forEach((card) => {
     card.setAttribute("aria-expanded", String(!isExpanded));
     card.classList.toggle("is-expanded", !isExpanded);
     list.hidden = isExpanded;
-    toggle.textContent = isExpanded ? "Show presentations" : "Hide presentations";
+    toggle.textContent = isExpanded ? "View presentations" : "Hide presentations";
   };
 
   card.addEventListener("click", togglePitchList);
