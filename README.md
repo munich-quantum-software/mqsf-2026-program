@@ -1,4 +1,4 @@
-# Munich Quantum Software Forum 2026
+# MQSF 2026 Program
 
 Static event website for 14–15 October 2026.
 
