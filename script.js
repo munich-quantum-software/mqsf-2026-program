@@ -1,12 +1,12 @@
 const pitchPresentations = [
   "Jingyi Mei — Quokka#: Quantum Computing with #SAT",
-  "Raphael Seidel — DetectorExperiment: Streamlined QEC on IQM Hardware with a Built-In Path to Real-Time Decoding †",
+  "Raphael Seidel — DetectorExperiment: Streamlined QEC on IQM Hardware with a Built-In Path to Real-Time Decoding",
   "Muhammad Osama and Alfons Laarman — QuaSARQ: A GPU-Accelerated Stabilizer Circuit Simulator for QEC",
   "Domenik Eichhorn, Nick Poser, Maximilian Schweikart, Piotr Malkowski, Luke Southall — Hybrid Quantum / Classical Problem Solving with the ProvideQ Toolbox",
   "Muhammad Arslan Ansari, Salvatore Zammuto, Martin Schulz — Re-using Runtime Quantum Circuit Transpilation in ADAPT-VQE Workflows",
   "Mathys Rennela — Catching Bugs in Detector Error Models (Before Your Decoder Fails)",
   "Michele Faucci Giannelli — The Chalmers Calibration toolkit for superconducting quantum processors",
-  "Dimitrios Bantounas, Michael Fromm, Alexander Gresch, Ioannis Kizilis, Soronzonbold Otgonbaatar — hardware-native compilation for trapped-ion quantum computing †",
+  "Dimitrios Bantounas, Michael Fromm, Alexander Gresch, Ioannis Kizilis, Soronzonbold Otgonbaatar — hardware-native compilation for trapped-ion quantum computing",
   "Oliver Denninger — The FullStaQD Reference Architecture for the Quantum Software Stack",
   "Cherilyn Christen, Nathaniel Pacey — A Framework for Noisy Gate Execution simulating Quantum Circuits",
   "Eric Bertok, Hannes Busche, Florian Drinkler, Peter Gruszka, Daniel Herr, Steffen Hien, Alexandru Paler, Martin Rymarz, Benedikt Strobel, Hanna Tschakert, Adrian Vetter, Andre Waschk, Alexander Weinert — QCI Connect: A Modular Platform for Hardware-Agnostic Quantum Computing",
@@ -58,7 +58,15 @@ pitchCards.forEach((card) => {
 
   presentations.forEach((presentation) => {
     const item = document.createElement("li");
-    item.textContent = presentation;
+    const separator = presentation.indexOf(" — ");
+    const authors = presentation.slice(0, separator);
+    const title = presentation.slice(separator + 3);
+    const authorLine = document.createElement("strong");
+    const titleLine = document.createElement("span");
+
+    authorLine.textContent = authors;
+    titleLine.textContent = title;
+    item.append(authorLine, titleLine);
     list.append(item);
   });
 
