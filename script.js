@@ -1,21 +1,3 @@
-document.documentElement.classList.add("js-enabled");
-
-document.querySelectorAll(".talk-details").forEach((details) => {
-  const title = details.querySelector("h3");
-  const speaker = details.querySelector(".speaker");
-
-  if (title?.textContent === "Title (placeholder)" && speaker) {
-    const [name, affiliation] = speaker.textContent.split(" — ");
-    title.textContent = name;
-
-    if (affiliation) {
-      speaker.textContent = affiliation;
-    } else {
-      speaker.remove();
-    }
-  }
-});
-
 const pitchPresentations = [
   "Jingyi Mei — Quokka#: Quantum Computing with #SAT",
   "Raphael Seidel — DetectorExperiment: Streamlined QEC on IQM Hardware with a Built-In Path to Real-Time Decoding †",

@@ -1,13 +1,5 @@
-# Practical Integration of Cloud-based Quantum Resources via QDMI into HPC–QC Stacks
+# Munich Quantum Software Forum 2026
 
-This repository contains the static website for the QCE26 tutorial.
+Static event website for 14–15 October 2026.
 
-## Local preview
-
-From the project directory, start the local preview server:
-
-```sh
-python3 -m http.server 8000
-```
-
-Then open <http://localhost:8000> in a browser.
+Open `index.html` in a browser to preview the site locally.
