@@ -1,3 +1,154 @@
+const waveCanvas = document.querySelector(".wave-canvas");
+
+if (waveCanvas) {
+  const context = waveCanvas.getContext("2d");
+  const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  let width = 0;
+  let height = 0;
+  let pixelRatio = 1;
+  let mesh = { nodes: [], connections: [] };
+
+  const createRandom = () => {
+    let state = (Math.round(width) * 73856093 + Math.round(height) * 19349663) >>> 0;
+
+    return () => {
+      state = (state * 1664525 + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+  };
+
+  const createMesh = () => {
+    const columns = Math.max(12, Math.ceil(width / 105));
+    const rows = 11;
+    const horizon = height * 0.38;
+    const random = createRandom();
+    const nodes = [];
+
+    for (let row = 0; row < rows; row += 1) {
+      const depth = row / (rows - 1);
+      const baseY = horizon + (height - horizon) * depth ** 1.8;
+
+      for (let column = 0; column <= columns; column += 1) {
+        const progress = column / columns;
+        const xJitter = (random() - 0.5) * (width / columns) * 0.55;
+        const yJitter = (random() - 0.5) * (8 + depth * 24);
+        nodes.push({
+          x: Math.max(0, Math.min(width, progress * width + xJitter)),
+          y: baseY + yJitter,
+          depth,
+          row,
+          column,
+          phase: random() * Math.PI * 2,
+        });
+      }
+    }
+
+    const candidates = [];
+    nodes.forEach((source, sourceIndex) => {
+      nodes.slice(sourceIndex + 1).forEach((target, targetOffset) => {
+        const targetIndex = sourceIndex + targetOffset + 1;
+        const rowDistance = Math.abs(source.row - target.row);
+        const columnDistance = Math.abs(source.column - target.column);
+
+        if (rowDistance > 2 || columnDistance > 3 || (rowDistance === 0 && columnDistance > 2)) {
+          return;
+        }
+
+        const distance = Math.hypot(source.x - target.x, source.y - target.y);
+        candidates.push({
+          sourceIndex,
+          targetIndex,
+          score: distance * (0.65 + random() * 0.9),
+        });
+      });
+    });
+
+    candidates.sort((first, second) => first.score - second.score);
+    const maximumDegree = 11;
+    const targetConnections = Math.round((nodes.length * 7) / 2);
+    const degrees = new Array(nodes.length).fill(0);
+    const connections = [];
+
+    candidates.forEach(({ sourceIndex, targetIndex }) => {
+      if (
+        connections.length === targetConnections ||
+        degrees[sourceIndex] >= maximumDegree ||
+        degrees[targetIndex] >= maximumDegree
+      ) {
+        return;
+      }
+
+      connections.push([sourceIndex, targetIndex]);
+      degrees[sourceIndex] += 1;
+      degrees[targetIndex] += 1;
+    });
+
+    mesh = { nodes, connections };
+  };
+
+  const resizeCanvas = () => {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    waveCanvas.width = Math.round(width * pixelRatio);
+    waveCanvas.height = Math.round(height * pixelRatio);
+    context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+    createMesh();
+  };
+
+  const drawWave = (time) => {
+    context.clearRect(0, 0, width, height);
+
+    const nodes = mesh.nodes.map((node) => {
+      const amplitude = 7 + node.depth * 18;
+      const offset = Math.sin(node.x / width * Math.PI * 3 + time * 0.00035 + node.phase) * amplitude;
+
+      return { ...node, y: node.y + offset };
+    });
+
+    mesh.connections.forEach(([sourceIndex, targetIndex]) => {
+      const source = nodes[sourceIndex];
+      const target = nodes[targetIndex];
+      const depth = (source.depth + target.depth) / 2;
+
+      context.lineWidth = 1.7 + depth * 2.5;
+      context.strokeStyle = `rgba(34, 114, 151, ${0.035 + depth * 0.12})`;
+      context.beginPath();
+      context.moveTo(source.x, source.y);
+      context.lineTo(target.x, target.y);
+      context.stroke();
+    });
+
+    nodes.forEach((node) => {
+      const radius = 2.3 + node.depth * 3.2;
+
+      context.fillStyle = `rgba(50, 137, 174, ${0.035 + node.depth * 0.13})`;
+      context.beginPath();
+      context.arc(node.x, node.y, radius, 0, Math.PI * 2);
+      context.fill();
+    });
+  };
+
+  const animateWave = (time) => {
+    drawWave(time);
+    if (!reducedMotion.matches) {
+      window.requestAnimationFrame(animateWave);
+    }
+  };
+
+  window.addEventListener("resize", resizeCanvas, { passive: true });
+  reducedMotion.addEventListener("change", () => {
+    if (reducedMotion.matches) {
+      drawWave(0);
+    } else {
+      window.requestAnimationFrame(animateWave);
+    }
+  });
+
+  resizeCanvas();
+  window.requestAnimationFrame(animateWave);
+}
+
 const pitchPresentations = [
   "Jingyi Mei — Quokka#: Quantum Computing with #SAT",
   "Raphael Seidel — DetectorExperiment: Streamlined QEC on IQM Hardware with a Built-In Path to Real-Time Decoding",
@@ -19,7 +170,7 @@ const pitchPresentations = [
   "Giancarlo Ponte Gamberi; Alexander Mandl; Sonja Bruckner; Stefan Hillmich — Towards Automatic Distribution of Constraints into Cost and Mixer Hamiltonians",
   "Arthur Strauss, Clemens Müller — Qiskit Kernels for Real-Time Quantum-Classical Programs - The Qiskit Quantum Machines Provider",
   "Hemant Sharma, Jelena Mackeprang, Jonas Helsen — Fast identification of loss-tolerant teleportation procedures in quantum error correcting codes",
-  "Amazon Braket — Recent advances toward dynamic circuit support on Amazon Braket",
+  "Nils Quetschlich — Recent advances toward dynamic circuit support on Amazon Braket",
   "Paul K. Faehrmann, Peter-Jan Derks, Frederik Wilde, Johannes Frank — Piper Draw: an interactive tool for building, viewing, and analyzing lattice surgery pipe diagrams",
   "Abhoy Kole, Till Schnittka, Karl Aaron Rudkowski, Julie Maria Raju, Majd Assaad, Louis Kruger, Rolf Drechsler — QCore: A Unified Quantum Software Framework from High-Level Specifications to Dynamic Compilation and Debugging",
   "Florian Krötz — Paulib – A High-Performance Framework for Pauli Algebra",
@@ -49,6 +200,7 @@ const pitchPresentations = [
 ];
 
 const pitchCards = document.querySelectorAll(".pitch-card");
+let nextPitchNumber = 1;
 
 pitchCards.forEach((card) => {
   const session = Number(card.dataset.pitchSession);
@@ -56,7 +208,11 @@ pitchCards.forEach((card) => {
   const list = card.querySelector(".pitch-list");
   const toggle = card.querySelector(".pitch-toggle");
 
-  toggle.textContent = "View presentations";
+  list.start = nextPitchNumber;
+  card.classList.add("is-expanded");
+  card.setAttribute("aria-expanded", "true");
+  list.hidden = false;
+  toggle.textContent = "Hide presentations";
 
   presentations.forEach((presentation) => {
     const item = document.createElement("li");
@@ -71,6 +227,7 @@ pitchCards.forEach((card) => {
     item.append(authorLine, titleLine);
     list.append(item);
   });
+  nextPitchNumber += presentations.length;
 
   const togglePitchList = () => {
     const isExpanded = card.getAttribute("aria-expanded") === "true";
@@ -89,21 +246,20 @@ pitchCards.forEach((card) => {
   });
 });
 
-const dayButtons = document.querySelectorAll(".day-switch-button");
-const daySchedules = document.querySelectorAll(".day-schedule");
+const dayLinks = document.querySelectorAll(".day-switch-button");
 
-dayButtons.forEach((button) => {
-  button.addEventListener("click", () => {
-    const selectedDay = button.dataset.day;
+dayLinks.forEach((link) => {
+  link.addEventListener("click", () => {
+    const selectedDay = link.dataset.day;
 
-    dayButtons.forEach((dayButton) => {
-      const isSelected = dayButton === button;
-      dayButton.classList.toggle("is-active", isSelected);
-      dayButton.setAttribute("aria-selected", String(isSelected));
-    });
-
-    daySchedules.forEach((schedule) => {
-      schedule.hidden = schedule.id !== selectedDay;
+    dayLinks.forEach((dayLink) => {
+      const isSelected = dayLink.dataset.day === selectedDay;
+      dayLink.classList.toggle("is-active", isSelected);
+      if (isSelected) {
+        dayLink.setAttribute("aria-current", "page");
+      } else {
+        dayLink.removeAttribute("aria-current");
+      }
     });
   });
 });
