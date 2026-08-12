@@ -18,7 +18,7 @@ a { color: inherit; }
 .wave-canvas { position: fixed; inset: 0; z-index: 0; display: block; width: 100%; height: 100svh; pointer-events: none; }
 .masthead { position: fixed; inset: 0 0 auto; z-index: 10; display: flex; justify-content: space-between; align-items: center; width: 100%; max-width: none; min-height: 96px; padding-inline: max(2.5rem, calc((100vw - var(--max-width)) / 2)); border-bottom: 1px solid rgba(4, 10, 20, .12); background: rgba(255, 255, 255, .78); box-shadow: 0 14px 30px rgba(2, 7, 14, .12); backdrop-filter: blur(16px); }
 .wordmark { display: inline-flex; align-items: center; width: 154px; text-decoration: none; }
-.wordmark img { display: block; width: 100%; height: auto; filter: brightness(0) saturate(100%); }
+.wordmark img { display: block; width: 100%; height: auto; }
 .event-meta { margin: 0; color: #425066; font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; }
 .content { position: relative; z-index: 1; padding: clamp(8rem, 14vw, 10rem) 0 7rem; }
 .kicker { margin: 0 0 1rem; color: var(--cyan); font-size: .7rem; letter-spacing: .18em; text-transform: uppercase; }
@@ -32,7 +32,7 @@ h1 { margin-bottom: 1.3rem; font-size: clamp(4.5rem, 11vw, 9.5rem); line-height:
 .sponsor-wall { position: relative; padding: clamp(1.25rem, 4vw, 2.75rem); border: 1px solid rgba(206, 230, 244, .2); border-radius: 3px; background: #fff; box-shadow: 0 18px 42px rgba(0,0,0,.12); }
 .sponsor-wall-inner { position: relative; }
 .sponsor-wall img { display: block; width: 100%; height: auto; }
-.sponsor-link { position: absolute; top: var(--top); left: var(--left); width: var(--width); height: var(--height); border-radius: 4px; cursor: pointer; }
+.sponsor-link { position: absolute; z-index: 1; top: var(--top); left: var(--left); width: var(--width); height: var(--height); border-radius: 4px; cursor: pointer; }
 .sponsor-link:hover { box-shadow: inset 0 0 0 1px rgba(0, 111, 183, .35); }
 .sponsor-link:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .section-label { margin-bottom: 1.75rem; }
