@@ -101,7 +101,7 @@ if (waveCanvas) {
 
     const nodes = mesh.nodes.map((node) => {
       const amplitude = 7 + node.depth * 18;
-      const offset = Math.sin(node.x / width * Math.PI * 3 + time * 0.00035 + node.phase) * amplitude;
+      const offset = Math.sin(node.x / width * Math.PI * 3 + time * 0.001 + node.phase) * amplitude;
 
       return { ...node, y: node.y + offset };
     });
