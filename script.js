@@ -1,4 +1,5 @@
 const waveCanvas = document.querySelector(".wave-canvas");
+const mobileViewport = window.matchMedia("(max-width: 680px)");
 
 if (waveCanvas) {
   const context = waveCanvas.getContext("2d");
@@ -7,6 +8,8 @@ if (waveCanvas) {
   let height = 0;
   let pixelRatio = 1;
   let mesh = { nodes: [], connections: [] };
+  let lastFrameTime = 0;
+  let waveTime = 0;
 
   const createRandom = () => {
     let state = (Math.round(width) * 73856093 + Math.round(height) * 19349663) >>> 0;
@@ -130,13 +133,22 @@ if (waveCanvas) {
   };
 
   const animateWave = (time) => {
-    drawWave(time);
+    const elapsed = lastFrameTime ? Math.min(time - lastFrameTime, 34) : 0;
+
+    lastFrameTime = time;
+    waveTime += elapsed;
+    drawWave(waveTime);
     if (!reducedMotion.matches) {
       window.requestAnimationFrame(animateWave);
     }
   };
 
-  window.addEventListener("resize", resizeCanvas, { passive: true });
+  window.addEventListener("resize", () => {
+    if (!mobileViewport.matches) {
+      resizeCanvas();
+    }
+  }, { passive: true });
+  window.addEventListener("orientationchange", resizeCanvas, { passive: true });
   reducedMotion.addEventListener("change", () => {
     if (reducedMotion.matches) {
       drawWave(0);
