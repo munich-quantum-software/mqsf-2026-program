@@ -208,6 +208,7 @@ const pitchPresentations = [
   "Vladyslav Los, Patrick Lenggenhager, Maciej Koch-Janusz — Modular EFTQC compilation and simulation framework",
   "Diego Alberto Olvera Millán — QAdaptive: A Flexible Framework for Training Adaptive Quantum Circuits †",
   "David Plankensteiner, Xiu-Zhe Luo, Kai-Hsin Wu, Neelay Fruitwala, Alexander Schuckert, Oriol Rubies-Bigorda, Rafael Haenel, Refaat Ismail, Stefan Ostermann, Shengtao Wang — PPVM - efficient, generic framework for realistic hardware emulation with classical logic",
+  "Kevin Mato — Scaling Quantum Computing using AI Supercomputing",
 ];
 
 const pitchCards = document.querySelectorAll(".pitch-card");
