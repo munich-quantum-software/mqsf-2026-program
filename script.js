@@ -258,6 +258,25 @@ pitchCards.forEach((card) => {
   });
 });
 
+document.querySelectorAll(".speaker-card").forEach((card) => {
+  const details = card.querySelector(".speaker-details");
+
+  const toggleSpeakerDetails = () => {
+    const isExpanded = card.getAttribute("aria-expanded") === "true";
+    card.setAttribute("aria-expanded", String(!isExpanded));
+    card.classList.toggle("is-expanded", !isExpanded);
+    details.hidden = isExpanded;
+  };
+
+  card.addEventListener("click", toggleSpeakerDetails);
+  card.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggleSpeakerDetails();
+    }
+  });
+});
+
 const dayLinks = document.querySelectorAll(".day-switch-button");
 
 dayLinks.forEach((link) => {
