@@ -162,7 +162,6 @@ if (waveCanvas) {
 }
 
 const pitchPresentations = [
-  "Jingyi Mei — Quokka#: Quantum Computing with #SAT",
   "Raphael Seidel — DetectorExperiment: Streamlined QEC on IQM Hardware with a Built-In Path to Real-Time Decoding",
   "Muhammad Osama and Alfons Laarman — QuaSARQ: A GPU-Accelerated Stabilizer Circuit Simulator for QEC",
   "Serban Cercelescu — Qubitserf",
@@ -212,11 +211,12 @@ const pitchPresentations = [
 ];
 
 const pitchCards = document.querySelectorAll(".pitch-card");
+const pitchSessionStarts = [0, 11, 23, 35];
 let nextPitchNumber = 1;
 
 pitchCards.forEach((card) => {
   const session = Number(card.dataset.pitchSession);
-  const presentations = pitchPresentations.slice(session * 12, session * 12 + 12);
+  const presentations = pitchPresentations.slice(pitchSessionStarts[session], pitchSessionStarts[session + 1]);
   const list = card.querySelector(".pitch-list");
   const toggle = card.querySelector(".pitch-toggle");
 
