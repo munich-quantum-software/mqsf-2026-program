@@ -7,6 +7,13 @@ export function clock(value) {
   return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
 }
 
+// Snap in either direction, keeping even a click inside the day's available hours.
+export function selectionRange(anchor, cursor, min, max) {
+  const snap = value => Math.max(min, Math.min(max, Math.round(value / 15) * 15));
+  const start = Math.min(snap(anchor), snap(cursor), max - 15);
+  return { start: clock(start), end: clock(Math.max(start + 15, snap(anchor), snap(cursor))) };
+}
+
 // Interval partitioning: overlapping events get separate lanes; touching events do not overlap.
 export function layoutEvents(events) {
   const sorted = events.map(event => ({ ...event, from: minutes(event.start), to: minutes(event.end) }))

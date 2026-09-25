@@ -1,4 +1,4 @@
-import { minutes, clock, layoutEvents } from "./calendar.mjs";
+import { minutes, clock, layoutEvents, selectionRange } from "./calendar.mjs";
 
 const $ = id => document.getElementById(id);
 const fields = ["title", "organizers", "date", "start", "end", "description", "audience"];
@@ -7,6 +7,7 @@ const apiBase = (window.MQSF_API_BASE || new URL("api", location.href).href).rep
 const scale = 1.3;
 let config, events = [], loaded = false, saving = false, editing = null, viewingId = null;
 let selectedDay = "2026-10-14", initialDraft = "", readSerial = 0, signature = "", toastTimer;
+let selection = null;
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -58,6 +59,8 @@ function renderCalendar() {
   }
   for (const day of config.days) {
     const container = $(`day-${day.date}`), dayEvents = events.filter(e => e.date === day.date);
+    container.dataset.from = from;
+    container.dataset.to = to;
     container.replaceChildren();
     $(`count-${day.date}`).textContent = `${dayEvents.length} ${dayEvents.length === 1 ? "event" : "events"}`;
     for (const [start, end] of [[from, day.start ? minutes(day.start) : from], [day.end ? minutes(day.end) : to, to]]) {
@@ -101,7 +104,7 @@ async function refresh() {
   const serial = ++readSerial;
   try {
     const data = await api();
-    if (serial !== readSerial) return false;
+    if (serial !== readSerial || selection) return false;
     if (!Array.isArray(data.events)) throw new Error("The server did not return a calendar.");
     const nextSignature = JSON.stringify(data.events);
     events = data.events; loaded = true;
@@ -146,14 +149,14 @@ function openDetails(id) {
 function draft() { return Object.fromEntries(fields.map(key => [key, form.elements.namedItem(key).value])); }
 function dirty() { return JSON.stringify(draft()) !== initialDraft; }
 
-function openEditor(event = null, date = selectedDay) {
+function openEditor(event = null, date = selectedDay, range = {}) {
   details.close();
   editing = event ? { ...event } : null;
   form.reset();
   ["form-error", "load-latest", "discard-confirm", "delete-confirm"].forEach(id => $(id).hidden = true);
   const day = config.days.find(d => d.date === (event?.date || date));
   const start = day.start || "10:00";
-  const defaults = { date, start, end: clock(Math.min(minutes(start) + 60, day.end ? minutes(day.end) : 1439)), title: "", organizers: "", description: "", audience: "" };
+  const defaults = { date, start, end: clock(Math.min(minutes(start) + 60, day.end ? minutes(day.end) : 1439)), title: "", organizers: "", description: "", audience: "", ...range };
   for (const key of fields) form.elements.namedItem(key).value = (event || defaults)[key] || "";
   $("editor-title").textContent = event ? "Edit event" : "Add an event";
   $("save-event").textContent = event ? "Save changes" : "Add event";
@@ -200,6 +203,59 @@ function toast(message) {
   $("toast").textContent = message; $("toast").hidden = false;
   toastTimer = setTimeout(() => $("toast").hidden = true, 5000);
 }
+
+function updateSelection(clientY) {
+  const { column, anchor, min, max, preview } = selection;
+  const from = Number(column.dataset.from);
+  const cursor = from + (clientY - column.getBoundingClientRect().top) / scale;
+  selection.range = selectionRange(anchor, cursor, min, max);
+  const { start, end } = selection.range;
+  preview.style.top = `${(minutes(start) - from) * scale}px`;
+  preview.style.height = `${(minutes(end) - minutes(start)) * scale}px`;
+  preview.textContent = `${start}–${end}`;
+}
+
+function cancelSelection() {
+  if (!selection) return;
+  const { column, pointerId, preview } = selection;
+  selection = null;
+  preview.remove();
+  document.body.classList.remove("selecting-time");
+  if (column.hasPointerCapture(pointerId)) column.releasePointerCapture(pointerId);
+}
+
+document.querySelectorAll(".day-column").forEach(column => {
+  column.addEventListener("pointerdown", event => {
+    // Touch gestures remain native page scrolling; the Add button works on all devices.
+    if (event.pointerType !== "mouse" || event.button !== 0 || !config || selection || event.target.closest("button")) return;
+    const day = config.days.find(day => day.date === column.dataset.day);
+    const min = Math.max(Number(column.dataset.from), minutes(day.start || "00:00"));
+    const max = Math.min(Number(column.dataset.to), minutes(day.end || "23:59"));
+    const anchor = Number(column.dataset.from) + (event.clientY - column.getBoundingClientRect().top) / scale;
+    if (max - min < 15 || anchor < min || anchor > max) return;
+    event.preventDefault();
+    const preview = element("div", "time-selection");
+    preview.setAttribute("aria-hidden", "true");
+    selection = { column, pointerId: event.pointerId, anchor, min, max, preview };
+    column.append(preview);
+    column.setPointerCapture(event.pointerId);
+    document.body.classList.add("selecting-time");
+    updateSelection(event.clientY);
+  });
+  column.addEventListener("pointermove", event => {
+    if (selection?.pointerId === event.pointerId && selection.column === column) updateSelection(event.clientY);
+  });
+  column.addEventListener("pointerup", event => {
+    if (selection?.pointerId !== event.pointerId || selection.column !== column) return;
+    updateSelection(event.clientY);
+    const { range } = selection;
+    cancelSelection();
+    openEditor(null, column.dataset.day, range);
+  });
+  for (const type of ["pointercancel", "lostpointercapture"]) column.addEventListener(type, cancelSelection);
+});
+document.addEventListener("keydown", event => { if (event.key === "Escape") cancelSelection(); });
+window.addEventListener("blur", cancelSelection);
 
 form.addEventListener("submit", async event => {
   event.preventDefault();

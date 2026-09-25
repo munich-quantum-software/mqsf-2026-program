@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { layoutEvents, minutes, clock } from "../side-events/calendar.mjs";
+import { layoutEvents, minutes, clock, selectionRange } from "../side-events/calendar.mjs";
 
 const input = [
   { id: "long", start: "09:00", end: "12:00" },
@@ -23,4 +23,13 @@ assert.equal(input[0].column, undefined, "Do not mutate event records");
 assert.deepEqual(layoutEvents([]), []);
 assert.equal(clock(minutes("23:59")), "23:59");
 assert.equal(clock(1440), "24:00");
-console.log("Calendar layout checks passed: overlapping, nested, chained, back-to-back, and very short events.");
+for (const [anchor, cursor, min, max, start, end] of [
+  [780, 900, 480, 1200, "13:00", "15:00"],
+  [900, 780, 480, 1200, "13:00", "15:00"],
+  [783, 893, 480, 1200, "13:00", "15:00"],
+  [780, 780, 480, 1200, "13:00", "13:15"],
+  [780, 0, 480, 1200, "08:00", "13:00"],
+  [1200, 1500, 480, 1200, "19:45", "20:00"],
+  [1439, 1440, 480, 1439, "23:44", "23:59"],
+]) assert.deepEqual(selectionRange(anchor, cursor, min, max), { start, end });
+console.log("Calendar checks passed: overlap layout, drag direction, snapping, minimum duration, and day boundaries.");
