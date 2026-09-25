@@ -38,3 +38,4 @@ If the program changes, update the hours and explanatory note, then restart the 
 All dates/times refer to Munich local time (Europe/Berlin, CEST on 14–15 October 2026).
 
 The calendar shares the logo and favicon in `assets/images/brand/` with the main program.
+Both pages also share `styles.css` for the site design and `assets/waves.js` for the animated background.
