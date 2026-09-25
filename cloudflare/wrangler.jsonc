@@ -1,0 +1,19 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "mqsf-2026-calendar",
+  "account_id": "fbdd65f914df8b6b5c60c0aa4d4de0bd",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-09-25",
+  "workers_dev": true,
+  "send_metrics": false,
+  "observability": { "enabled": false },
+  "vars": {
+    "ALLOWED_ORIGINS": "https://munich-quantum-software.github.io"
+  },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "mqsf-2026-calendar",
+    "database_id": "d58e75df-0b02-487f-9927-a0c66ab57427",
+    "migrations_dir": "migrations"
+  }]
+}
