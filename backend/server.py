@@ -143,7 +143,7 @@ def create_app(database=None, allowed_origins=None, demo=False, seed_examples=Fa
                 public = PUBLIC if calendar_path else ROOT
                 allowed = filename in {
                     "index.html", "styles.css", "app.mjs", "calendar.mjs", "config.js",
-                    "conference.json", "logo.svg", "favicon.png"
+                    "conference.json"
                 } if calendar_path else filename in {"index.html", "styles.css", "script.js"}
                 asset = (public / filename).resolve()
                 if not calendar_path and filename.startswith("assets/"):

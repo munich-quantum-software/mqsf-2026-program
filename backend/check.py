@@ -74,7 +74,7 @@ with TemporaryDirectory() as directory:
         assert request(app, "GET", mount + "/app.mjs")[0] == 200
         assert request(app, "GET", mount + "/api/events")[0] == 200
     assert b'href="./side-events/"' in request(app, "GET", "/")[1]
-    for resource in ["/styles.css", "/script.js", "/assets/images/brand/favicon.png"]:
+    for resource in ["/styles.css", "/script.js", "/assets/images/brand/favicon.png", "/assets/images/brand/mqsf-logo.svg"]:
         assert request(app, "GET", resource)[0] == 200
     assert request(app, "GET", "/assets/../backend/server.py")[0] == 404
     assert request(app, "OPTIONS", origin="https://munich-quantum-software.github.io")[0] == 204
