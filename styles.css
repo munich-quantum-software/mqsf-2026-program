@@ -42,7 +42,7 @@ h1 { margin-bottom: 1.3rem; font-size: clamp(4.5rem, 11vw, 9.5rem); line-height:
 .sponsor-link:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .section-label { margin-bottom: 1.75rem; }
 .section-label .kicker { margin-bottom: .4rem; }
-.day-switch { display: flex; width: fit-content; gap: .3rem; margin-top: 1.5rem; border-bottom: 1px solid var(--faint); }
+.day-switch { display: flex; flex-wrap: wrap; width: fit-content; gap: .3rem; margin-top: 1.5rem; border-bottom: 1px solid var(--faint); }
 .day-tabs { display: flex; gap: .3rem; }
 .day-switch-button, .day-switch-link { position: relative; padding: .55rem .8rem .7rem; border: 0; color: var(--muted); background: transparent; font: inherit; font-size: .72rem; letter-spacing: .1em; text-decoration: none; text-transform: uppercase; cursor: pointer; }
 .day-switch-button::after { position: absolute; right: .8rem; bottom: -1px; left: .8rem; height: 2px; content: ""; background: transparent; }
