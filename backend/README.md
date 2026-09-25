@@ -3,7 +3,8 @@
 The public GitHub Pages calendar uses [Cloudflare Workers and D1](../cloudflare/README.md).
 This Python service provides the local preview with a separate SQLite database.
 
-The calendar's static files are in `side-events/`. The small Python WSGI service stores events in SQLite.
+The calendar markup is in the main `index.html`, with its scripts, styles, and configuration in `side-events/`.
+The small Python WSGI service stores events in SQLite.
 No application accounts, cookies, analytics, contact details, or visitor logs are used.
 Only event fields (including public organizer names), random event IDs, revision numbers, and update timestamps are stored.
 Hosting providers and reverse proxies may keep their own access logs; configure those separately.
@@ -17,7 +18,8 @@ python3 backend/server.py --demo --port 8030
 ```
 
 Open <http://127.0.0.1:8030/> for the main program and follow **Side events** to the calendar.
-The calendar is also available at <http://127.0.0.1:8030/mqsf/>. The labelled sample events are kept in `.data/demo.sqlite3`.
+The calendar's direct link is <http://127.0.0.1:8030/#side-events>; the older `/mqsf/` and `/side-events/` links redirect there.
+The labelled sample events are kept in `.data/demo.sqlite3`.
 Stop the server with Ctrl+C. Without `--demo`, the app uses a separate, initially empty `.data/events.sqlite3`.
 The local development server binds only to this computer. Use a production WSGI server for public hosting.
 
@@ -37,5 +39,4 @@ If the program changes, update the hours and explanatory note, then restart the 
 `viewStart` and `viewEnd` are display defaults only; the calendar expands to include events outside that range.
 All dates/times refer to Munich local time (Europe/Berlin, CEST on 14–15 October 2026).
 
-The calendar shares the logo and favicon in `assets/images/brand/` with the main program.
-Both pages also share `styles.css` for the site design and `assets/waves.js` for the animated background.
+The calendar uses the main page's header, fonts, animated background, and sponsor section.

@@ -70,10 +70,11 @@ with TemporaryDirectory() as directory:
     assert request(app, "GET", "/mqsf/.data/events.sqlite3")[0] == 404
     assert request(app, "GET", "/mqsf")[0] == 308
     for mount in ["/mqsf", "/side-events"]:
-        assert request(app, "GET", mount + "/")[0] == 200
+        assert b'url=../#side-events' in request(app, "GET", mount + "/")[1]
         assert request(app, "GET", mount + "/app.mjs")[0] == 200
+        assert request(app, "GET", mount + "/conference.json")[0] == 200
         assert request(app, "GET", mount + "/api/events")[0] == 200
-    assert b'href="./side-events/"' in request(app, "GET", "/")[1]
+    assert b'href="#side-events"' in request(app, "GET", "/")[1]
     for resource in ["/styles.css", "/script.js", "/assets/images/brand/favicon.png", "/assets/images/brand/mqsf-logo.svg"]:
         assert request(app, "GET", resource)[0] == 200
     assert request(app, "GET", "/assets/../backend/server.py")[0] == 404

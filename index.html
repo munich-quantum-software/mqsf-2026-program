@@ -10,11 +10,15 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="./styles.css?v=2">
+    <link rel="stylesheet" href="./styles.css?v=3">
+    <link rel="stylesheet" href="./side-events/styles.css?v=3">
+    <script src="./side-events/config.js" defer></script>
+    <script type="module" src="./side-events/app.mjs?v=3"></script>
     <script src="./assets/waves.js" defer></script>
-    <script src="./script.js?v=2" defer></script>
+    <script src="./script.js?v=3" defer></script>
   </head>
   <body>
+    <a class="skip-link" href="#agenda-heading">Skip to program</a>
     <div class="page-shell">
       <canvas class="wave-canvas" aria-hidden="true"></canvas>
 
@@ -35,10 +39,10 @@
             <h1 id="agenda-heading">Program</h1>
             <nav class="day-switch" aria-label="Program navigation">
               <div class="day-tabs">
-                <a id="day-1-link" class="day-switch-button is-active" href="#day-1" data-day="day-1" aria-current="page">Day 1</a>
-                <a id="day-2-link" class="day-switch-button" href="#day-2" data-day="day-2">Day 2</a>
+                <a id="day-1-link" class="day-switch-button is-active" href="#day-1" data-view="day-1" aria-current="page">Day 1</a>
+                <a id="day-2-link" class="day-switch-button" href="#day-2" data-view="day-2">Day 2</a>
               </div>
-              <a class="day-switch-link" href="./side-events/">Side events</a>
+              <a id="side-events-link" class="day-switch-button" href="#side-events" data-view="side-events">Side events</a>
               <a class="day-switch-link" href="#sponsors">Sponsors</a>
             </nav>
           </div>
@@ -84,6 +88,46 @@
             <div class="break-row"><span>18:00</span><span>Networking</span><small>Open end</small></div>
             </section>
           </div>
+          <section id="side-events" class="side-events-ui" aria-labelledby="side-events-heading">
+            <section class="intro" aria-labelledby="side-events-heading">
+              <div>
+                <h2 id="side-events-heading">Side events</h2>
+                <p class="intro-text">Meet, build, and exchange ideas alongside the main program.</p>
+              </div>
+              <button class="button button-add" id="add-event" disabled><span aria-hidden="true">+</span> Add an event</button>
+            </section>
+            <div class="community-note">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="9" cy="7" r="3"/><path d="M3 21v-3a6 6 0 0 1 12 0v3M16 4a3 3 0 0 1 0 6M18 14a5 5 0 0 1 3 4v3"/></svg>
+              <p>A calendar for everyone. Anyone can add or edit an event. No sign-in needed.</p>
+            </div>
+            <div id="demo-note" class="demo-note" hidden>Local preview · These example events are for trying out the calendar, not confirmed sessions.</div>
+            <div class="connection-error" id="connection-error" role="alert" hidden>
+              <span id="connection-message"></span><button class="text-button" id="retry">Try again</button>
+            </div>
+            <section class="calendar-card" id="calendar" aria-label="Side-event calendar" tabindex="-1">
+              <div class="calendar-toolbar">
+                <div class="calendar-caption"><span class="calendar-symbol" aria-hidden="true">▦</span><strong>October 2026</strong><span id="event-count" class="event-count"></span></div>
+                <p id="sync-status" class="sync-status">Loading events…</p>
+              </div>
+              <div class="mobile-days" aria-label="Choose calendar day">
+                <button type="button" data-day="2026-10-14" aria-pressed="true">Wed <strong>14 Oct</strong></button>
+                <button type="button" data-day="2026-10-15" aria-pressed="false">Thu <strong>15 Oct</strong></button>
+              </div>
+              <div class="calendar-head">
+                <div class="timezone-label">CEST</div>
+                <div class="day-heading" data-day="2026-10-14"><span class="date-number">14</span><div><h3>Wednesday</h3><p>October 2026</p></div><span class="day-count" id="count-2026-10-14">—</span></div>
+                <div class="day-heading" data-day="2026-10-15"><span class="date-number">15</span><div><h3>Thursday</h3><p>October 2026</p></div><span class="day-count" id="count-2026-10-15">—</span></div>
+              </div>
+              <div class="calendar-grid" id="calendar-grid" aria-busy="true">
+                <div class="time-axis" id="time-axis" aria-hidden="true"></div>
+                <div class="day-column" id="day-2026-10-14" data-day="2026-10-14" role="group" aria-label="Wednesday 14 October events"></div>
+                <div class="day-column" id="day-2026-10-15" data-day="2026-10-15" role="group" aria-label="Thursday 15 October events"></div>
+              </div>
+              <div class="calendar-bottom"><p>All times are in Munich · CEST (UTC+2).</p><p id="hours-note">Side-event hours will be confirmed.</p></div>
+            </section>
+            <p class="page-note"><span class="drag-hint">Click or drag empty calendar space to add an event in 15-minute steps. </span>Select an event for its description, intended audience, or to make changes.</p>
+            <noscript><p class="connection-error">Enable JavaScript to load the shared calendar and add events.</p></noscript>
+          </section>
         </section>
 
         <section class="sponsors" id="sponsors" aria-labelledby="sponsors-heading">
@@ -112,6 +156,51 @@
         </section>
       </main>
 
+    </div>
+    <div class="side-events-ui">
+      <dialog id="details-dialog" aria-labelledby="details-title">
+        <div class="dialog-top"><p class="dialog-eyebrow">Community side event</p><button class="icon-button" id="close-details" aria-label="Close event details">×</button></div>
+        <h2 id="details-title"></h2>
+        <p class="event-when" id="details-time"></p>
+        <div class="detail-section"><h3>Organizer(s)</h3><p id="details-organizers" class="prose"></p></div>
+        <div class="detail-section"><h3>About this event</h3><p id="details-description" class="prose"></p></div>
+        <div class="audience-box"><h3>Who is it for?</h3><p id="details-audience" class="prose"></p></div>
+        <p class="updated-note" id="details-updated"></p>
+        <div class="dialog-actions"><button type="button" class="button button-secondary" id="details-done">Close</button><button type="button" class="button button-primary" id="edit-event">Edit event</button></div>
+      </dialog>
+
+      <dialog id="editor-dialog" aria-labelledby="editor-title">
+        <form id="event-form">
+          <div class="dialog-top"><p class="dialog-eyebrow">MQSF 2026 · Side events</p><button type="button" class="icon-button" id="close-editor" aria-label="Close event editor">×</button></div>
+          <h2 id="editor-title">Add an event</h2>
+          <p class="editor-intro">A meetup, a hacking session, or something else worth bringing people together for.</p>
+          <fieldset id="event-fields">
+            <label for="event-title">Title</label>
+            <input id="event-title" name="title" maxlength="120" placeholder="e.g. MQT developers meeting" required>
+            <label for="event-organizers">Organizer name(s)</label>
+            <input id="event-organizers" name="organizers" maxlength="200" placeholder="Who is organizing this event?" aria-describedby="organizers-hint" required>
+            <p class="field-hint" id="organizers-hint">Shown publicly with the event. No account or contact details needed.</p>
+            <div class="time-fields">
+              <div><label for="event-date">Day</label><select id="event-date" name="date" required><option value="2026-10-14">Wed, 14 October</option><option value="2026-10-15">Thu, 15 October</option></select></div>
+              <div><label for="event-start">Start</label><input type="time" id="event-start" name="start" value="10:00" required></div>
+              <div><label for="event-end">End</label><input type="time" id="event-end" name="end" value="11:00" required></div>
+            </div>
+            <p class="field-hint" id="time-hint">Munich time · CEST (UTC+2)</p>
+            <p class="overlap-note" id="overlap-note" hidden></p>
+            <label for="event-description">Description</label>
+            <textarea id="event-description" name="description" rows="4" maxlength="3000" placeholder="What will you do? Is there anything participants should prepare or bring?" required></textarea>
+            <label for="event-audience">Intended audience</label>
+            <textarea id="event-audience" name="audience" rows="2" maxlength="300" placeholder="e.g. MQT contributors and anyone interested in getting involved" required></textarea>
+          </fieldset>
+          <div class="form-error" id="form-error" role="alert" hidden></div>
+          <button type="button" class="text-button" id="load-latest" hidden>Load latest version (replaces your draft)</button>
+          <div id="discard-confirm" class="confirmation" hidden><p>Discard your unsaved changes?</p><button type="button" class="button button-secondary" id="keep-editing">Keep editing</button><button type="button" class="button button-danger" id="discard-draft">Discard changes</button></div>
+          <div id="delete-confirm" class="confirmation" hidden><p>Delete this event for everyone? This cannot be undone.</p><button type="button" class="button button-secondary" id="keep-event">Keep event</button><button type="button" class="button button-danger" id="confirm-delete">Delete event</button></div>
+          <p class="shared-note">Your changes are shared with everyone. Any participant can edit this event later.</p>
+          <div class="editor-actions"><button type="button" class="text-button delete-button" id="delete-event" hidden>Delete event</button><div class="dialog-actions"><button type="button" class="button button-secondary" id="cancel-editor">Cancel</button><button type="submit" class="button button-primary" id="save-event">Add event</button></div></div>
+        </form>
+      </dialog>
+      <div class="toast" id="toast" role="status" hidden></div>
     </div>
   </body>
 </html>

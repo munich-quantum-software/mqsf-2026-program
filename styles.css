@@ -12,7 +12,7 @@
 html { min-width: 320px; background: var(--deep); scroll-behavior: smooth; font-family: "Poppins", ui-sans-serif, system-ui, sans-serif; }
 body, button, input, select, textarea { margin: 0; color: var(--ink); background: var(--deep); font-family: inherit; line-height: 1.5; }
 a { color: inherit; }
-.page-shell { position: relative; min-height: 100svh; overflow: hidden; isolation: isolate; background: radial-gradient(ellipse at 58% 48%, rgba(27, 81, 110, .68) 0%, transparent 48%), linear-gradient(135deg, #1b2544 0%, #111d38 52%, #172641 100%); background-attachment: fixed; }
+.page-shell { position: relative; min-height: 100svh; overflow: clip; isolation: isolate; background: radial-gradient(ellipse at 58% 48%, rgba(27, 81, 110, .68) 0%, transparent 48%), linear-gradient(135deg, #1b2544 0%, #111d38 52%, #172641 100%); background-attachment: fixed; }
 .page-shell::after { position: fixed; inset: 0; z-index: 0; content: ""; pointer-events: none; background: linear-gradient(180deg, rgba(8, 15, 34, .08), rgba(8, 15, 34, .46)), radial-gradient(ellipse at center, transparent 28%, rgba(5, 10, 26, .44) 100%); }
 .container { width: min(calc(100% - 5rem), var(--max-width)); margin-inline: auto; }
 .wave-canvas { position: fixed; inset: 0; z-index: 0; display: block; width: 100%; height: 100svh; pointer-events: none; }
@@ -113,3 +113,10 @@ h3 { margin-bottom: .4rem; font-size: clamp(1.15rem, 2.4vw, 1.55rem); line-heigh
   .pitch-list { grid-column: 2 / -1; padding-left: 1.15rem; font-size: .7rem; }
 }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+[hidden] { display: none !important; }
+#side-events { margin-top: 4rem; scroll-margin-top: 7.5rem; }
+#agenda-heading { scroll-margin-top: 7.5rem; }
+body:has(dialog[open]) { overflow: hidden; }
+.skip-link { position: fixed; top: 8px; left: 8px; padding: 12px; color: #182840; background: #fff; z-index: 20; transform: translateY(-200%); }
+.skip-link:focus { transform: none; }

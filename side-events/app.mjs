@@ -3,7 +3,7 @@ import { minutes, clock, layoutEvents, selectionRange } from "./calendar.mjs";
 const $ = id => document.getElementById(id);
 const fields = ["title", "organizers", "date", "start", "end", "description", "audience"];
 const form = $("event-form"), editor = $("editor-dialog"), details = $("details-dialog");
-const apiBase = (window.MQSF_API_BASE || new URL("api", location.href).href).replace(/\/$/, "");
+const apiBase = (window.MQSF_API_BASE || new URL("./api", import.meta.url).href).replace(/\/$/, "");
 const scale = 1.3;
 let config, events = [], loaded = false, saving = false, editing = null, viewingId = null;
 let selectedDay = "2026-10-14", initialDraft = "", readSerial = 0, signature = "", toastTimer;
@@ -38,7 +38,7 @@ async function api(path = "", options = {}) {
 
 function chooseDay(date) {
   selectedDay = date;
-  document.querySelectorAll(".day-heading, .day-column").forEach(node => node.classList.toggle("active-day", node.dataset.day === date));
+  $("calendar").querySelectorAll(".day-heading, .day-column").forEach(node => node.classList.toggle("active-day", node.dataset.day === date));
   document.querySelectorAll(".mobile-days button").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.day === date)));
 }
 
@@ -314,12 +314,13 @@ for (const id of ["event-date", "event-start", "event-end"]) $(id).addEventListe
 document.querySelectorAll(".mobile-days button").forEach(button => button.addEventListener("click", () => chooseDay(button.dataset.day)));
 $("retry").addEventListener("click", () => config ? refresh() : initialize());
 window.addEventListener("beforeunload", event => { if (editor.open && dirty()) { event.preventDefault(); event.returnValue = ""; } });
-document.addEventListener("visibilitychange", () => { if (!document.hidden && config) refresh(); });
-setInterval(() => { if (!document.hidden && config) refresh(); }, 15000);
+function refreshIfVisible() { if (!document.hidden && config) refresh(); }
+document.addEventListener("visibilitychange", refreshIfVisible);
+setInterval(refreshIfVisible, 15000);
 
 async function initialize() {
   try {
-    const response = await fetch("./conference.json", { cache: "no-store" });
+    const response = await fetch(new URL("./conference.json", import.meta.url), { cache: "no-store" });
     if (!response.ok) throw new Error("Could not load the conference dates. Please try again.");
     config = await response.json();
     $("hours-note").textContent = config.hoursNote || "Side events run alongside the main program.";

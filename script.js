@@ -114,20 +114,19 @@ document.querySelectorAll(".speaker-card").forEach((card) => {
   });
 });
 
-const dayLinks = document.querySelectorAll(".day-switch-button");
+const programLinks = document.querySelectorAll("[data-view]");
 
-dayLinks.forEach((link) => {
-  link.addEventListener("click", () => {
-    const selectedDay = link.dataset.day;
-
-    dayLinks.forEach((dayLink) => {
-      const isSelected = dayLink.dataset.day === selectedDay;
-      dayLink.classList.toggle("is-active", isSelected);
-      if (isSelected) {
-        dayLink.setAttribute("aria-current", "page");
-      } else {
-        dayLink.removeAttribute("aria-current");
-      }
-    });
+function updateProgramNavigation() {
+  const target = document.getElementById(location.hash.slice(1));
+  const section = target?.closest(".day-schedule, #side-events");
+  const selectedId = section?.id || (location.hash ? null : "day-1");
+  programLinks.forEach(link => {
+    const selected = link.dataset.view === selectedId;
+    link.classList.toggle("is-active", selected);
+    if (selected) link.setAttribute("aria-current", "location");
+    else link.removeAttribute("aria-current");
   });
-});
+}
+
+window.addEventListener("hashchange", updateProgramNavigation);
+updateProgramNavigation();
