@@ -105,9 +105,13 @@ document.querySelectorAll(".speaker-card").forEach((card) => {
     details.hidden = isExpanded;
   };
 
-  card.addEventListener("click", toggleSpeakerDetails);
+  card.addEventListener("click", (event) => {
+    if (!event.target.closest("a")) {
+      toggleSpeakerDetails();
+    }
+  });
   card.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") {
+    if (!event.target.closest("a") && (event.key === "Enter" || event.key === " ")) {
       event.preventDefault();
       toggleSpeakerDetails();
     }
