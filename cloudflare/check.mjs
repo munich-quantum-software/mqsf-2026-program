@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { getPlatformProxy, unstable_splitSqlQuery } from "wrangler";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import worker from "./worker.mjs";
-import { notifyChanges } from "./notifications.mjs";
+import { notifyChanges, discordMessage } from "./notifications.mjs";
 import { restoreSQL } from "./moderate.mjs";
 
 const platform = await getPlatformProxy({ configPath: "cloudflare/wrangler.jsonc", persist: false, remoteBindings: false });
@@ -104,7 +104,7 @@ try {
       assert.equal(options.redirect, "manual");
       const payload = JSON.parse(options.body.get("payload_json"));
       assert.deepEqual(payload.allowed_mentions, { parse: [] });
-      assert.ok(payload.content.length <= 2000);
+      assert.ok(payload.embeds[0].title.includes("Meet-up"));
       const snapshot = JSON.parse(await options.body.get("files[0]").text());
       deliveries.push(snapshot);
       return Response.json({ id: "discord-message" });
@@ -133,6 +133,23 @@ try {
     assert.ok((await env.DB.prepare("SELECT notified_at FROM event_changes WHERE id=?").bind(pending.id).first()).notified_at);
     await assert.rejects(notifyChanges({ ...env, DISCORD_WEBHOOK_URL: "https://unrelated.example/webhook" }));
   } finally { globalThis.fetch = realFetch; }
+  const oldDetails = { ...draft, description: "Original plan", start: "10:00" };
+  const newDetails = { ...draft, description: "New plan", start: "11:00" };
+  const message = discordMessage({ id: "test", action: "updated", created_at: new Date().toISOString(), before_json: JSON.stringify(oldDetails), after_json: JSON.stringify(newDetails) });
+  assert.deepEqual(message.embeds[0].fields.slice(2), [
+    { name: "Start time changed", value: "**Before**\n10:00\n\n**After**\n11:00" },
+    { name: "Description changed", value: "**Before**\nOriginal plan\n\n**After**\nNew plan" },
+  ]);
+  for (const action of ["created", "updated", "deleted"]) {
+    const long = { ...draft, title: "*".repeat(120), description: "*".repeat(3000), audience: "*".repeat(300), organizers: "*".repeat(200) };
+    const payload = discordMessage({ id: "test", action, created_at: new Date().toISOString(), before_json: action === "created" ? null : JSON.stringify(oldDetails), after_json: action === "deleted" ? null : JSON.stringify(long) });
+    const embed = payload.embeds[0];
+    assert.ok(embed.title.length <= 256 && embed.description.length <= 4096);
+    assert.ok(embed.fields.every(field => field.name.length <= 256 && field.value.length <= 1024));
+    assert.ok(embed.title.length + embed.description.length + embed.footer.text.length + embed.fields.reduce((sum, field) => sum + field.name.length + field.value.length, 0) <= 6000);
+    assert.deepEqual(payload.allowed_mentions, { parse: [] });
+    assert.equal(payload.flags, undefined, "Do not suppress our own rich embeds");
+  }
   // Run the actual outbound request in workerd: its Fetch API differs from Node's.
   let runtimeDeliveries = 0, redirectTest = true;
   const runtime = new Miniflare(convertV4MiniflareOptions({

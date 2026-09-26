@@ -71,7 +71,8 @@ The form explains the purpose and offers direct contact via robert@mq.sc as an a
    Save/deploy it. Do not put the value in this repository, a command argument, or chat.
 4. Deploy the Worker. Without the secret, changes remain queued and will be sent after it is configured.
 
-Each notification includes the event, its private contact, a change ID, and a JSON attachment containing full before/after details.
+Notifications distinguish added (green), changed (blue), and deleted (red) meet-ups. Changes show each affected field before and after.
+Every message includes event context, the private contact, a change ID, and a JSON attachment with complete before/after details; long text is shortened only in the message.
 Participant text cannot ping users or roles. The webhook is stored only by Cloudflare, never sent to the browser.
 The local Python preview does **not** send Discord messages.
 
