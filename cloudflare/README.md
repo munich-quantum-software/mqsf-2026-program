@@ -72,14 +72,15 @@ The form explains the purpose and offers direct contact via robert@mq.sc as an a
 4. Deploy the Worker. Without the secret, changes remain queued and will be sent after it is configured.
 
 Notifications distinguish added (green), changed (blue), and deleted (red) meet-ups. Changes show each affected field before and after.
-Every message includes event context, the private contact, a change ID, and a JSON attachment with complete before/after details; long text is shortened only in the message.
+Every notification includes the full event details, private contact, and a change ID directly in rich messages, without attachments.
+Long text spans numbered fields/messages to stay within Discord limits without truncation.
 Participant text cannot ping users or roles. The webhook is stored only by Cloudflare, never sent to the browser.
 The local Python preview does **not** send Discord messages.
 
 Database triggers record every creation, update, and deletion atomically. The same rows form the delivery queue.
 The Worker attempts delivery after changes and checks pending rows every minute. Failures retry with backoff; the history is retained.
-A lease prevents concurrent sends of the same row. Delivery is at least once: a timeout after Discord accepts a message can cause
-one duplicate. Use the change ID to identify duplicates. Failed deliveries and pending rows are visible with the moderation command below.
+A lease prevents concurrent sends of the same row. Delivery is at least once: a timeout or failure in a later message part can cause
+previously delivered parts to repeat. Use the change ID and part number to identify duplicates. Failed deliveries and pending rows are visible with the moderation command below.
 If delivery repeatedly fails, check channel/webhook permissions and the `notify_error` status; response bodies are not logged.
 
 ## Review and recover changes
@@ -98,7 +99,7 @@ node cloudflare/moderate.mjs restore CHANGE_ID before CURRENT_VERSION --apply
 Use `before` to undo an edit/deletion, or `after` to recover a selected saved state. For a deleted event use current version `0`;
 otherwise use `current_version` from `list`. A stale version or missing snapshot returns no rows and changes nothing.
 Restoration generates a new revision and history entry, so stale browser drafts cannot overwrite it, and the restore is also notified.
-`show` contains private addresses. Do not paste its output, notification attachments, or database exports into public issues.
+`show` contains private addresses. Do not paste its output, private Discord messages, or database exports into public issues.
 
 History and contacts are retained for moderation; there is no automatic deletion job. After event follow-up, remove private data
-from D1, private Discord notifications/attachments, and any local exports according to the organizers' retention decision.
+from D1, private Discord notifications, and any local exports according to the organizers' retention decision.

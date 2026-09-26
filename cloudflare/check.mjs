@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { getPlatformProxy, unstable_splitSqlQuery } from "wrangler";
 import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import worker from "./worker.mjs";
-import { notifyChanges, discordMessage } from "./notifications.mjs";
+import { notifyChanges, discordMessages } from "./notifications.mjs";
 import { restoreSQL } from "./moderate.mjs";
 
 const platform = await getPlatformProxy({ configPath: "cloudflare/wrangler.jsonc", persist: false, remoteBindings: false });
@@ -102,19 +102,19 @@ try {
     globalThis.fetch = async (url, options) => {
       assert.equal(new URL(url).search, "?wait=true");
       assert.equal(options.redirect, "manual");
-      const payload = JSON.parse(options.body.get("payload_json"));
+      const payload = JSON.parse(options.body);
       assert.deepEqual(payload.allowed_mentions, { parse: [] });
       assert.ok(payload.embeds[0].title.includes("Meet-up"));
-      const snapshot = JSON.parse(await options.body.get("files[0]").text());
-      deliveries.push(snapshot);
+      assert.equal(payload.attachments, undefined);
+      deliveries.push(payload.embeds[0]);
       return Response.json({ id: "discord-message" });
     };
     await notifyChanges(env); // No configured secret: leave the outbox untouched.
     assert.equal(deliveries.length, 0);
-    await Promise.all([notifyChanges(notifyEnv), notifyChanges(notifyEnv)]);
+    await Promise.all([notifyChanges(notifyEnv, 3), notifyChanges(notifyEnv, 3)]);
     assert.equal(deliveries.length, 6);
-    assert.equal(new Set(deliveries.map(d => d.change_id)).size, 6, "Concurrent drains must claim different changes");
-    assert.equal(deliveries[0].after.contact_email, contact_email);
+    assert.equal(new Set(deliveries.map(d => d.footer.text)).size, 6, "Concurrent drains must claim different changes");
+    assert.equal(deliveries[0].fields.find(field => field.name === "Contact email (private)").value, contact_email);
     let attempts = 0;
     globalThis.fetch = async () => { attempts++; return Response.json({ retry_after: 120, message: "Do not store response bodies" }, { status: 429 }); };
     await notifyChanges(notifyEnv);
@@ -131,24 +131,45 @@ try {
     await notifyChanges(notifyEnv);
     assert.equal(attempts, 2);
     assert.ok((await env.DB.prepare("SELECT notified_at FROM event_changes WHERE id=?").bind(pending.id).first()).notified_at);
+    const longChange = await env.DB.prepare("INSERT INTO event_changes(event_id, action, before_json, after_json) VALUES (?, 'updated', ?, ?) RETURNING id")
+      .bind(first.id, JSON.stringify({ ...draft, description: "*".repeat(3000) }), JSON.stringify({ ...draft, description: "_".repeat(3000) })).first();
+    let parts = 0;
+    globalThis.fetch = async () => ++parts === 2 ? new Response(null, { status: 503 }) : Response.json({ id: "part" });
+    await notifyChanges(notifyEnv);
+    assert.equal(parts, 2);
+    const incomplete = await env.DB.prepare("SELECT notified_at, notify_error FROM event_changes WHERE id=?").bind(longChange.id).first();
+    assert.deepEqual(incomplete, { notified_at: null, notify_error: "Discord HTTP 503" }, "Only acknowledge a change after every part is delivered");
+    await env.DB.prepare("UPDATE event_changes SET notify_after=0 WHERE id=?").bind(longChange.id).run();
+    globalThis.fetch = async () => Response.json({ id: "complete-part" });
+    await notifyChanges(notifyEnv);
+    assert.ok((await env.DB.prepare("SELECT notified_at FROM event_changes WHERE id=?").bind(longChange.id).first()).notified_at);
     await assert.rejects(notifyChanges({ ...env, DISCORD_WEBHOOK_URL: "https://unrelated.example/webhook" }));
   } finally { globalThis.fetch = realFetch; }
   const oldDetails = { ...draft, description: "Original plan", start: "10:00" };
   const newDetails = { ...draft, description: "New plan", start: "11:00" };
-  const message = discordMessage({ id: "test", action: "updated", created_at: new Date().toISOString(), before_json: JSON.stringify(oldDetails), after_json: JSON.stringify(newDetails) });
-  assert.deepEqual(message.embeds[0].fields.slice(2), [
+  const [message] = discordMessages({ id: "test", action: "updated", created_at: new Date().toISOString(), before_json: JSON.stringify(oldDetails), after_json: JSON.stringify(newDetails) });
+  assert.deepEqual(message.embeds[0].fields.slice(2, 4), [
     { name: "Start time changed", value: "**Before**\n10:00\n\n**After**\n11:00" },
     { name: "Description changed", value: "**Before**\nOriginal plan\n\n**After**\nNew plan" },
   ]);
   for (const action of ["created", "updated", "deleted"]) {
-    const long = { ...draft, title: "*".repeat(120), description: "*".repeat(3000), audience: "*".repeat(300), organizers: "*".repeat(200) };
-    const payload = discordMessage({ id: "test", action, created_at: new Date().toISOString(), before_json: action === "created" ? null : JSON.stringify(oldDetails), after_json: action === "deleted" ? null : JSON.stringify(long) });
-    const embed = payload.embeds[0];
-    assert.ok(embed.title.length <= 256 && embed.description.length <= 4096);
-    assert.ok(embed.fields.every(field => field.name.length <= 256 && field.value.length <= 1024));
-    assert.ok(embed.title.length + embed.description.length + embed.footer.text.length + embed.fields.reduce((sum, field) => sum + field.name.length + field.value.length, 0) <= 6000);
-    assert.deepEqual(payload.allowed_mentions, { parse: [] });
-    assert.equal(payload.flags, undefined, "Do not suppress our own rich embeds");
+    const longBefore = { ...draft, title: "*".repeat(120), description: "*".repeat(2998) + "🚀", audience: "*".repeat(300), organizers: "*".repeat(200) };
+    const longAfter = { ...longBefore, description: "_".repeat(2998) + "🚀" };
+    const messages = discordMessages({ id: "test", action, created_at: new Date().toISOString(), before_json: action === "created" ? null : JSON.stringify(longBefore), after_json: action === "deleted" ? null : JSON.stringify(longAfter) });
+    for (const payload of messages) {
+      const embed = payload.embeds[0];
+      assert.ok(embed.title.length <= 256 && embed.description.length <= 4096 && embed.fields.length <= 25);
+      assert.ok(embed.fields.every(field => field.name.length <= 256 && field.value.length <= 1024));
+      assert.ok(embed.title.length + embed.description.length + embed.footer.text.length + embed.fields.reduce((sum, field) => sum + field.name.length + field.value.length, 0) <= 6000);
+      assert.deepEqual(payload.allowed_mentions, { parse: [] });
+      assert.equal(payload.flags, undefined, "Do not suppress our own rich embeds");
+      assert.equal(payload.attachments, undefined);
+    }
+    const fields = messages.flatMap(payload => payload.embeds[0].fields);
+    const shown = fields.filter(field => field.name.startsWith(action === "updated" ? "Description · After" : "Description")).map(field => field.value).join("");
+    const raw = action === "deleted" ? longBefore.description : longAfter.description;
+    assert.equal(shown, raw.replace(/[\\`*_~|\[\]()<>]/g, "\\$&"), "Long text and Unicode must be preserved completely");
+    if (action === "updated") assert.ok(messages.length > 1, "Large before/after changes span numbered messages");
   }
   // Run the actual outbound request in workerd: its Fetch API differs from Node's.
   let runtimeDeliveries = 0, redirectTest = true;
@@ -160,9 +181,9 @@ try {
     outboundService: async request => {
       runtimeDeliveries++;
       assert.equal(new URL(request.url).hostname, "discord.com");
-      const form = await request.formData();
-      assert.deepEqual(JSON.parse(form.get("payload_json")).allowed_mentions, { parse: [] });
-      assert.equal(JSON.parse(await form.get("files[0]").text()).after.contact_email, contact_email);
+      const payload = await request.json();
+      assert.deepEqual(payload.allowed_mentions, { parse: [] });
+      assert.equal(payload.embeds[0].fields.find(field => field.name === "Contact email (private)").value, contact_email);
       return redirectTest ? new Response(null, { status: 302, headers: { Location: "https://unrelated.example/" } }) : Response.json({ id: "runtime-message" });
     },
   }));
