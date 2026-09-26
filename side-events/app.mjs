@@ -1,7 +1,7 @@
 import { minutes, clock, layoutEvents, selectionRange } from "./calendar.mjs";
 
 const $ = id => document.getElementById(id);
-const fields = ["title", "organizers", "date", "start", "end", "description", "audience"];
+const fields = ["title", "organizers", "contact_email", "date", "start", "end", "description", "audience"];
 const form = $("event-form"), editor = $("editor-dialog"), details = $("details-dialog");
 const apiBase = (window.MQSF_API_BASE || new URL("./api", import.meta.url).href).replace(/\/$/, "");
 const scale = 1.3;
@@ -158,6 +158,9 @@ function openEditor(event = null, date = selectedDay, range = {}) {
   const start = day.start || "10:00";
   const defaults = { date, start, end: clock(Math.min(minutes(start) + 60, day.end ? minutes(day.end) : 1439)), title: "", organizers: "", description: "", audience: "", ...range };
   for (const key of fields) form.elements.namedItem(key).value = (event || defaults)[key] || "";
+  $("event-contact-email").value = "";
+  $("event-contact-email").required = !event;
+  $("contact-edit-hint").hidden = !event;
   $("editor-title").textContent = event ? "Edit event" : "Add an event";
   $("save-event").textContent = event ? "Save changes" : "Add event";
   $("delete-event").hidden = !event;

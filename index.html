@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="./styles.css?v=3">
     <link rel="stylesheet" href="./side-events/styles.css?v=4">
     <script src="./side-events/config.js" defer></script>
-    <script type="module" src="./side-events/app.mjs?v=3"></script>
+    <script type="module" src="./side-events/app.mjs?v=4"></script>
     <script src="./assets/waves.js" defer></script>
     <script src="./script.js?v=3" defer></script>
   </head>
@@ -181,7 +181,11 @@
             <input id="event-title" name="title" maxlength="120" placeholder="e.g. MQT developers meeting" required>
             <label for="event-organizers">Organizer name(s)</label>
             <input id="event-organizers" name="organizers" maxlength="200" placeholder="Who is organizing this event?" aria-describedby="organizers-hint" required>
-            <p class="field-hint" id="organizers-hint">Shown publicly with the event. No account or contact details needed.</p>
+            <p class="field-hint" id="organizers-hint">Shown publicly with the event.</p>
+            <label for="event-contact-email">Contact email (private)</label>
+            <input type="email" id="event-contact-email" name="contact_email" maxlength="254" autocomplete="off" aria-describedby="contact-hint contact-edit-hint" required>
+            <p class="field-hint" id="contact-hint">Only for the MQSF organizers, Simon and Robert, to contact you about your event or table reservation. It is stored privately and included in their private Discord notifications, never displayed in the calendar. Prefer not to submit it here? Email <a href="mailto:robert@mq.sc">robert@mq.sc</a> instead.</p>
+            <p class="field-hint" id="contact-edit-hint" hidden>Leave blank to keep the existing contact email. For privacy, the saved address is never shown here.</p>
             <div class="time-fields">
               <div><label for="event-date">Day</label><select id="event-date" name="date" required><option value="2026-10-14">Wed, 14 October</option><option value="2026-10-15">Thu, 15 October</option></select></div>
               <div><label for="event-start">Start</label><input type="time" id="event-start" name="start" value="10:00" required></div>
@@ -197,8 +201,8 @@
           <div class="form-error" id="form-error" role="alert" hidden></div>
           <button type="button" class="text-button" id="load-latest" hidden>Load latest version (replaces your draft)</button>
           <div id="discard-confirm" class="confirmation" hidden><p>Discard your unsaved changes?</p><button type="button" class="button button-secondary" id="keep-editing">Keep editing</button><button type="button" class="button button-danger" id="discard-draft">Discard changes</button></div>
-          <div id="delete-confirm" class="confirmation" hidden><p>Delete this event for everyone? This cannot be undone.</p><button type="button" class="button button-secondary" id="keep-event">Keep event</button><button type="button" class="button button-danger" id="confirm-delete">Delete event</button></div>
-          <p class="shared-note">Your changes are shared with everyone. Any participant can edit this event later.</p>
+          <div id="delete-confirm" class="confirmation" hidden><p>Remove this event from the public timetable? The MQSF organizers keep a private history for recovery.</p><button type="button" class="button button-secondary" id="keep-event">Keep event</button><button type="button" class="button button-danger" id="confirm-delete">Delete event</button></div>
+          <p class="shared-note">Event details are public and anyone can edit them. Contact emails stay private. The MQSF organizers receive notifications and keep a private history of changes and deletions for moderation and recovery.</p>
           <div class="editor-actions"><button type="button" class="text-button delete-button" id="delete-event" hidden>Delete event</button><div class="dialog-actions"><button type="button" class="button button-secondary" id="cancel-editor">Cancel</button><button type="submit" class="button button-primary" id="save-event">Add event</button></div></div>
         </form>
       </dialog>
