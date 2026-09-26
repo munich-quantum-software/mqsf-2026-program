@@ -22,10 +22,13 @@ export async function notifyChanges(env, limit = 3) {
     const body = new FormData();
     body.set("payload_json", JSON.stringify({ content, username: "MQSF Community", allowed_mentions: { parse: [] }, flags: 4 }));
     body.set("files[0]", new Blob([JSON.stringify({ change_id: change.id, action: change.action, at: change.created_at, before, after }, null, 2)], { type: "application/json" }), `mqsf-change-${change.id}.json`);
-    let error = "Network or confirmation error", retry = Math.min(3600, 60 * 2 ** Math.min(change.notify_attempts - 1, 6));
+    let error = "Network error", stage = "request", retry = Math.min(3600, 60 * 2 ** Math.min(change.notify_attempts - 1, 6));
     try {
-      const response = await fetch(url, { method: "POST", body, redirect: "error", signal: AbortSignal.timeout(8000) });
+      // Workers support manual redirects; never forward private payloads to a redirected URL.
+      const response = await fetch(url, { method: "POST", body, redirect: "manual", signal: AbortSignal.timeout(8000) });
+      stage = `HTTP ${response.status} confirmation`;
       if (response.ok && typeof (await response.json()).id === "string") {
+        stage = "record delivery";
         await env.DB.prepare(`UPDATE event_changes SET notified_at=?, notify_lease_until=0, notify_error=NULL
           WHERE id=? AND notify_lease_until=?`).bind(new Date().toISOString(), change.id, lease).run();
         continue;
@@ -35,7 +38,10 @@ export async function notifyChanges(env, limit = 3) {
         const seconds = Number((await response.json()).retry_after);
         if (Number.isFinite(seconds)) retry = Math.max(retry, Math.ceil(seconds));
       }
-    } catch { /* Do not log response bodies, contact details, or webhook URLs. */ }
+    } catch (failure) {
+      const kind = ["TypeError", "SyntaxError", "TimeoutError", "AbortError"].includes(failure.name) ? failure.name : "Error";
+      error = `${stage}: ${kind}`; // Never include exception messages, bodies, contacts, or webhook URLs.
+    }
     await env.DB.prepare(`UPDATE event_changes SET notify_after=?, notify_lease_until=0, notify_error=?
       WHERE id=? AND notify_lease_until=?`).bind(Math.floor(Date.now() / 1000) + retry, error, change.id, lease).run();
     return; // Back off for the channel, including rate limits and revoked webhooks.

@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { getPlatformProxy, unstable_splitSqlQuery } from "wrangler";
+import { Miniflare, convertV4MiniflareOptions } from "miniflare";
 import worker from "./worker.mjs";
 import { notifyChanges } from "./notifications.mjs";
 import { restoreSQL } from "./moderate.mjs";
@@ -16,9 +17,9 @@ async function request(method = "GET", path = "/api/events", data, from = origin
   }), env);
   return { status: response.status, headers: response.headers, data: response.status === 204 ? null : await response.json() };
 }
-async function apply(file) {
+async function apply(file, db = env.DB) {
   const sql = await readFile(new URL(file, import.meta.url), "utf8");
-  await env.DB.batch(unstable_splitSqlQuery(sql).map(sql => env.DB.prepare(sql)));
+  await db.batch(unstable_splitSqlQuery(sql).map(sql => db.prepare(sql)));
 }
 try {
   await apply("./migrations/0001_events.sql");
@@ -100,7 +101,7 @@ try {
   try {
     globalThis.fetch = async (url, options) => {
       assert.equal(new URL(url).search, "?wait=true");
-      assert.equal(options.redirect, "error");
+      assert.equal(options.redirect, "manual");
       const payload = JSON.parse(options.body.get("payload_json"));
       assert.deepEqual(payload.allowed_mentions, { parse: [] });
       assert.ok(payload.content.length <= 2000);
@@ -132,5 +133,36 @@ try {
     assert.ok((await env.DB.prepare("SELECT notified_at FROM event_changes WHERE id=?").bind(pending.id).first()).notified_at);
     await assert.rejects(notifyChanges({ ...env, DISCORD_WEBHOOK_URL: "https://unrelated.example/webhook" }));
   } finally { globalThis.fetch = realFetch; }
+  // Run the actual outbound request in workerd: its Fetch API differs from Node's.
+  let runtimeDeliveries = 0, redirectTest = true;
+  const runtime = new Miniflare(convertV4MiniflareOptions({
+    modules: true, compatibilityDate: "2026-09-25", d1Databases: ["DB"],
+    bindings: { DISCORD_WEBHOOK_URL: notifyEnv.DISCORD_WEBHOOK_URL },
+    script: await readFile(new URL("./notifications.mjs", import.meta.url), "utf8")
+      + "\nexport default { async fetch(request, env) { await notifyChanges(env); return new Response('done'); } };",
+    outboundService: async request => {
+      runtimeDeliveries++;
+      assert.equal(new URL(request.url).hostname, "discord.com");
+      const form = await request.formData();
+      assert.deepEqual(JSON.parse(form.get("payload_json")).allowed_mentions, { parse: [] });
+      assert.equal(JSON.parse(await form.get("files[0]").text()).after.contact_email, contact_email);
+      return redirectTest ? new Response(null, { status: 302, headers: { Location: "https://unrelated.example/" } }) : Response.json({ id: "runtime-message" });
+    },
+  }));
+  try {
+    const db = await runtime.getD1Database("DB");
+    await apply("./migrations/0001_events.sql", db);
+    await apply("./migrations/0003_private_contacts_and_history.sql", db);
+    await db.prepare("INSERT INTO events(id,date,start,end,title,description,audience,organizers,contact_email,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)")
+      .bind(crypto.randomUUID(), draft.date, draft.start, draft.end, draft.title, draft.description, draft.audience, draft.organizers, contact_email, new Date().toISOString()).run();
+    await runtime.dispatchFetch("http://localhost/");
+    assert.equal(runtimeDeliveries, 1, "Never follow webhook redirects with private data");
+    assert.equal((await db.prepare("SELECT notify_error FROM event_changes").first()).notify_error, "Discord HTTP 302");
+    redirectTest = false;
+    await db.prepare("UPDATE event_changes SET notify_after=0").run();
+    await runtime.dispatchFetch("http://localhost/");
+    assert.equal(runtimeDeliveries, 2);
+    assert.ok((await db.prepare("SELECT notified_at FROM event_changes").first()).notified_at);
+  } finally { await runtime.dispose(); }
   console.log("Cloudflare D1 checks passed: private contacts, atomic history, Discord outbox, retries, CRUD, validation, concurrent edits, CORS, hours, and example seeds.");
 } finally { await platform.dispose(); }
