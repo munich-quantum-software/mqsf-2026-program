@@ -15,6 +15,7 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parents[1]
 PUBLIC = ROOT / "side-events"
 FIELDS = ("date", "start", "end", "title", "description", "audience", "organizers")
+PUBLIC_COLUMNS = ", ".join((*FIELDS, "id", "version", "updated_at"))
 
 
 class RequestError(Exception):
@@ -65,6 +66,18 @@ def read_json(environ):
     return value
 
 
+def contact_email(data, required):
+    value = data.get("contact_email", "")
+    if not isinstance(value, str) or len(value) > 254 or "\r" in value or "\n" in value:
+        raise RequestError(400, "Enter a valid private contact email address.")
+    email = value.strip()
+    if not email and not required:
+        return ""
+    if not re.fullmatch(r"[^\s<>@,;]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}", email):
+        raise RequestError(400, "Enter a private contact email address, or contact robert@mq.sc to arrange your event directly.")
+    return email
+
+
 def create_app(database=None, allowed_origins=None, demo=False, seed_examples=False):
     if allowed_origins is None:
         allowed_origins = tuple(filter(None, os.environ.get("MQSF_ALLOWED_ORIGINS", "").split(",")))
@@ -95,6 +108,9 @@ def create_app(database=None, allowed_origins=None, demo=False, seed_examples=Fa
         )""")
         if "organizers" not in {row["name"] for row in connection.execute("PRAGMA table_info(events)")}:
             connection.execute("ALTER TABLE events ADD COLUMN organizers TEXT NOT NULL DEFAULT ''")
+        if "contact_email" not in {row["name"] for row in connection.execute("PRAGMA table_info(events)")}:
+            migration = (ROOT / "cloudflare/migrations/0003_private_contacts_and_history.sql").read_text()
+            connection.executescript("BEGIN;\n" + migration + "\nCOMMIT;")
         if (demo or seed_examples) and not connection.execute("SELECT 1 FROM events LIMIT 1").fetchone():
             examples = [
                 ("2026-10-14", "10:00", "11:15", "MQT developers meeting", "Compare ideas for the next MQT release and discuss opportunities to contribute.", "MQT contributors and anyone interested in contributing"),
@@ -161,7 +177,7 @@ def create_app(database=None, allowed_origins=None, demo=False, seed_examples=Fa
             event_id = match.group(1)
             with closing(connect()) as connection, connection:
                 if method == "GET" and not event_id:
-                    events = [dict(row) for row in connection.execute("SELECT * FROM events ORDER BY date, start, end, id")]
+                    events = [dict(row) for row in connection.execute(f"SELECT {PUBLIC_COLUMNS} FROM events ORDER BY date, start, end, id")]
                     return reply(200, {"events": events, "demo": demo})
                 if method not in ("POST", "PUT", "DELETE") or (method == "POST") == bool(event_id):
                     raise RequestError(405, "Method not allowed.")
@@ -178,17 +194,19 @@ def create_app(database=None, allowed_origins=None, demo=False, seed_examples=Fa
                     connection.commit()
                     return reply(200, {"deleted": event_id})
                 event = validate_event(data, config)
+                email = contact_email(data, method == "POST")
                 values = tuple(event[key] for key in FIELDS)
                 now = datetime.now(timezone.utc).isoformat()
                 if method == "POST":
                     event_id = str(uuid4())
-                    connection.execute("INSERT INTO events (id, date, start, end, title, description, audience, organizers, version, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)", (event_id, *values, now))
+                    connection.execute("INSERT INTO events (id, date, start, end, title, description, audience, organizers, contact_email, version, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)", (event_id, *values, email, now))
                 else:
                     result = connection.execute("""UPDATE events SET date=?, start=?, end=?, title=?, description=?, audience=?, organizers=?,
-                        updated_at=?, version=version+1 WHERE id=? AND version=?""", (*values, now, event_id, data["version"]))
+                        contact_email=COALESCE(NULLIF(?, ''), contact_email), updated_at=?, version=version+1
+                        WHERE id=? AND version=?""", (*values, email, now, event_id, data["version"]))
                     if not result.rowcount:
                         raise RequestError(409, "Someone changed this event while you were editing. Your changes have not been saved.")
-                event = dict(connection.execute("SELECT * FROM events WHERE id=?", (event_id,)).fetchone())
+                event = dict(connection.execute(f"SELECT {PUBLIC_COLUMNS} FROM events WHERE id=?", (event_id,)).fetchone())
                 connection.commit()
                 return reply(201 if method == "POST" else 200, {"event": event})
         except RequestError as error:

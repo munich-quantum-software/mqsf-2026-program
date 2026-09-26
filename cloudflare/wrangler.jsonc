@@ -7,6 +7,7 @@
   "workers_dev": true,
   "send_metrics": false,
   "observability": { "enabled": false },
+  "triggers": { "crons": ["* * * * *"] },
   "vars": {
     "ALLOWED_ORIGINS": "https://munich-quantum-software.github.io"
   },

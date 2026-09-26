@@ -1,6 +1,8 @@
 import conference from "../side-events/conference.json" with { type: "json" };
+import { notifyChanges } from "./notifications.mjs";
 
 const fields = { date: 10, start: 5, end: 5, title: 120, description: 3000, audience: 300, organizers: 200 };
+const publicColumns = [...Object.keys(fields), "id", "version", "updated_at"].join(", ");
 class RequestError extends Error {
   constructor(status, message) { super(message); this.status = status; }
 }
@@ -24,6 +26,19 @@ function validate(data) {
     throw new RequestError(400, `Choose a time within the published hours for ${event.date}.`);
   }
   return event;
+}
+
+function contactEmail(data, required) {
+  const value = data.contact_email === undefined ? "" : data.contact_email;
+  if (typeof value !== "string" || value.length > 254 || /[\r\n]/.test(value)) {
+    throw new RequestError(400, "Enter a valid private contact email address.");
+  }
+  const email = value.trim();
+  if (!email && !required) return "";
+  if (!/^[^\s<>@,;]+@[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?\.[A-Za-z]{2,}$/.test(email)) {
+    throw new RequestError(400, "Enter a private contact email address, or contact robert@mq.sc to arrange your event directly.");
+  }
+  return email;
 }
 
 async function readData(request) {
@@ -50,7 +65,10 @@ async function readData(request) {
 }
 
 export default {
-  async fetch(request, env) {
+  async scheduled(controller, env) {
+    await notifyChanges(env, 10);
+  },
+  async fetch(request, env, ctx) {
     const url = new URL(request.url), origin = request.headers.get("Origin");
     const allowed = !origin || origin === url.origin || (env.ALLOWED_ORIGINS || "").split(",").includes(origin);
     const headers = {
@@ -68,7 +86,7 @@ export default {
         "Access-Control-Allow-Headers": "Content-Type",
       } });
       if (method === "GET" && !id) {
-        const { results } = await env.DB.prepare("SELECT * FROM events ORDER BY date, start, end, id").all();
+        const { results } = await env.DB.prepare(`SELECT ${publicColumns} FROM events ORDER BY date, start, end, id`).all();
         return reply(200, { events: results, demo: false });
       }
       if (!["POST", "PUT", "DELETE"].includes(method) || (method === "POST") === Boolean(id)) {
@@ -83,14 +101,16 @@ export default {
         saved = await env.DB.prepare("DELETE FROM events WHERE id=? AND version=? RETURNING id").bind(id, data.version).first();
       } else {
         const event = validate(data), values = Object.keys(fields).map(key => event[key]);
+        const email = contactEmail(data, method === "POST");
         const updated = new Date().toISOString();
         if (method === "POST") {
           saved = await env.DB.prepare(`INSERT INTO events
-            (date, start, end, title, description, audience, organizers, updated_at, id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`).bind(...values, updated, crypto.randomUUID()).first();
+            (date, start, end, title, description, audience, organizers, contact_email, updated_at, id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING ${publicColumns}`).bind(...values, email, updated, crypto.randomUUID()).first();
         } else {
           saved = await env.DB.prepare(`UPDATE events SET date=?, start=?, end=?, title=?, description=?, audience=?, organizers=?,
-            updated_at=?, version=version+1 WHERE id=? AND version=? RETURNING *`).bind(...values, updated, id, data.version).first();
+            contact_email=COALESCE(NULLIF(?, ''), contact_email), updated_at=?, version=version+1
+            WHERE id=? AND version=? RETURNING ${publicColumns}`).bind(...values, email, updated, id, data.version).first();
         }
       }
       if (!saved) {
@@ -98,6 +118,7 @@ export default {
         if (!exists) throw new RequestError(404, "This event was removed. Your changes have not been saved.");
         throw new RequestError(409, "Someone changed this event. Load the latest version before saving or deleting it.");
       }
+      ctx?.waitUntil(notifyChanges(env));
       return reply(method === "POST" ? 201 : 200, method === "DELETE" ? { deleted: id } : { event: saved });
     } catch (error) {
       if (error instanceof RequestError) return reply(error.status, { error: error.message });

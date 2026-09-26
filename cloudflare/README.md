@@ -4,7 +4,9 @@ GitHub Pages serves the website. A Cloudflare Worker handles `/api/events` and s
 The deployed API is <https://mqsf-2026-calendar.mqsf-2026-program.workers.dev/api/events>.
 The `mqsf-2026-calendar` database is already provisioned in the EU; its binding is in `wrangler.jsonc`.
 There are no participant accounts. Everyone can edit or delete events, and revision checks protect concurrent edits.
-Organizer names are public event data. No contact fields, cookies, analytics, or application visitor logs are collected.
+Organizer names are public. Contact emails are private: only the organizers can read them in D1 and their private Discord channel.
+The public API explicitly selects public fields, including in save responses. There are no public history or moderation endpoints.
+No cookies, analytics, or application visitor logs are collected.
 The hosting providers may keep their own infrastructure logs.
 
 ## Development
@@ -40,14 +42,62 @@ Deployment does not reset the database or recreate deleted examples. Never put t
 The Workers/D1 free plan has daily limits, so check usage in the Cloudflare dashboard during the event.
 
 For later backend updates, run the tests, apply any new migrations, then `npm run deploy:api`.
+**Exception for migration 0003:** back up first, deploy the new Worker **before** applying the migration, then publish the form.
+The older Worker returned `SELECT *`, so it must be replaced before private columns exist. Reads continue to work;
+writes may return a temporary 503 until migration 0003 finishes. Never roll back to the old `SELECT *` Worker after this migration.
 Conference dates and hours are bundled from `side-events/conference.json`, so changes to that file need a Worker redeploy.
 
 ## Backups
 
-Export before maintenance or after the event (the export contains public organizer names):
+Export before maintenance or after the event. Exports contain **private contact addresses and full history**:
 
 ```sh
 npx wrangler d1 export DB --remote --config cloudflare/wrangler.jsonc --output .data/mqsf-backup.sql
 ```
 
 Keep exports outside Git. Cloudflare also provides D1 Time Travel recovery.
+
+
+## Private contacts and Discord notifications
+
+New events require a contact email. Editing leaves this field blank: omitting it or submitting an empty string preserves the saved address.
+Supplying an address replaces it, while the old address stays in the private history. This is a contact channel, not identity verification.
+The form explains the purpose and offers direct contact via robert@mq.sc as an alternative.
+
+1. Create a private **text channel on a Discord server** accessible only to Simon, Robert, and trusted server administrators.
+   Group DMs do not support incoming webhooks. Set the channel's notification preference to **All Messages** for both organizers.
+2. In channel settings, open **Integrations → Webhooks**, create an incoming webhook, and copy its URL.
+3. In Cloudflare, open **mqsf-2026-calendar → Settings → Variables and Secrets** and add a **Secret** named `DISCORD_WEBHOOK_URL` in **Production**.
+   Save/deploy it. Do not put the value in this repository, a command argument, or chat.
+4. Deploy the Worker. Without the secret, changes remain queued and will be sent after it is configured.
+
+Each notification includes the event, its private contact, a change ID, and a JSON attachment containing full before/after details.
+Participant text cannot ping users or roles. The webhook is stored only by Cloudflare, never sent to the browser.
+The local Python preview does **not** send Discord messages.
+
+Database triggers record every creation, update, and deletion atomically. The same rows form the delivery queue.
+The Worker attempts delivery after changes and checks pending rows every minute. Failures retry with backoff; the history is retained.
+A lease prevents concurrent sends of the same row. Delivery is at least once: a timeout after Discord accepts a message can cause
+one duplicate. Use the change ID to identify duplicates. Failed deliveries and pending rows are visible with the moderation command below.
+If delivery repeatedly fails, check channel/webhook permissions and the `notify_error` status; response bodies are not logged.
+
+## Review and recover changes
+
+Run these from the repository root using an authorized Wrangler login. No admin secret or history is exposed on the website.
+The change ID is included in every Discord notification.
+
+```sh
+node cloudflare/moderate.mjs list
+node cloudflare/moderate.mjs show CHANGE_ID
+node cloudflare/moderate.mjs restore CHANGE_ID before CURRENT_VERSION
+# After reviewing the snapshot and the dry run:
+node cloudflare/moderate.mjs restore CHANGE_ID before CURRENT_VERSION --apply
+```
+
+Use `before` to undo an edit/deletion, or `after` to recover a selected saved state. For a deleted event use current version `0`;
+otherwise use `current_version` from `list`. A stale version or missing snapshot returns no rows and changes nothing.
+Restoration generates a new revision and history entry, so stale browser drafts cannot overwrite it, and the restore is also notified.
+`show` contains private addresses. Do not paste its output, notification attachments, or database exports into public issues.
+
+History and contacts are retained for moderation; there is no automatic deletion job. After event follow-up, remove private data
+from D1, private Discord notifications/attachments, and any local exports according to the organizers' retention decision.

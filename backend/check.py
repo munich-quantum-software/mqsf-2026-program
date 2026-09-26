@@ -27,7 +27,7 @@ with TemporaryDirectory() as directory:
     database = Path(directory) / "events.sqlite3"
     app = create_app(database, allowed_origins=("https://munich-quantum-software.github.io",))
     event = {"date": "2026-10-14", "start": "10:00", "end": "11:00", "title": 'Meetup <script>alert("x")</script>',
-             "description": "Bring a laptop.\nEveryone is welcome.", "audience": "Developers & researchers", "organizers": "Alex & Sam"}
+             "description": "Bring a laptop.\nEveryone is welcome.", "audience": "Developers & researchers", "organizers": "Alex & Sam", "contact_email": "private@example.test"}
     assert request(app)[1] == {"events": [], "demo": False}
     assert request(app, "POST", data=event, origin="https://unrelated.example")[0] == 403
     assert request(app, "POST", data=event, content_type="text/plain")[0] == 415
@@ -35,7 +35,7 @@ with TemporaryDirectory() as directory:
     assert status == 201 and headers["Access-Control-Allow-Origin"] == "https://munich-quantum-software.github.io"
     first = data["event"]
     assert first["title"] == event["title"] and first["version"] == 1
-    assert set(first) == set(event) | {"id", "version", "updated_at"}, "Store only event data and revision metadata"
+    assert set(first) == (set(event) - {"contact_email"}) | {"id", "version", "updated_at"}, "Store only event data and revision metadata"
     assert first["organizers"] == event["organizers"]
     second_client = create_app(database)
     assert request(second_client)[1]["events"] == [first], "Edits must persist across clients and restarts"
@@ -47,7 +47,7 @@ with TemporaryDirectory() as directory:
     latest = next(e for e in request(app)[1]["events"] if e["id"] == first["id"])
     assert latest["version"] == 2
     assert request(app, "DELETE", path, {"version": 1})[0] == 409
-    for changes in [{"date": "2026-10-16"}, {"start": "11:00"}, {"end": "09:00"}, {"start": "24:00"},
+    for changes in [{"contact_email": ""}, {"contact_email": None}, {"contact_email": "invalid"}, {"contact_email": "a@example.test\nX"}, {"date": "2026-10-16"}, {"start": "11:00"}, {"end": "09:00"}, {"start": "24:00"},
                     {"title": " "}, {"title": "x" * 121}, {"description": None}, {"audience": 5},
                     {"organizers": " "}, {"organizers": "x" * 201}, {"start": "07:59"}]:
         assert request(app, "POST", data={**event, **changes})[0] == 400, changes
@@ -64,7 +64,20 @@ with TemporaryDirectory() as directory:
     status, data, _ = request(app, "PUT", path, {**latest, "organizers": "Taylor"})
     assert status == 200 and data["event"]["organizers"] == "Taylor"
     latest = data["event"]
+    with sqlite3.connect(database) as connection:
+        assert connection.execute("SELECT contact_email FROM events WHERE id=?", (first["id"],)).fetchone()[0] == event["contact_email"]
+    status, data, _ = request(app, "PUT", path, {**latest, "contact_email": "new@example.test"})
+    assert status == 200 and "contact_email" not in data["event"]
+    latest = data["event"]
     assert request(app, "DELETE", path, {"version": latest["version"]})[0] == 200
+    with sqlite3.connect(database) as connection:
+        rows = connection.execute("SELECT action, before_json, after_json FROM event_changes WHERE event_id=? ORDER BY rowid", (first["id"],)).fetchall()
+        assert [row[0] for row in rows] == ["created", "updated", "updated", "updated", "deleted"]
+        assert json.loads(rows[-2][1])["contact_email"] == event["contact_email"]
+        assert json.loads(rows[-1][1])["contact_email"] == "new@example.test"
+        assert rows[-1][2] is None
+    assert "contact_email" not in json.dumps(request(app)[1])
+    assert request(app, "GET", "/mqsf/api/history")[0] == 404
     assert request(app, "PUT", path, latest)[0] == 404
     assert request(app, "GET", "/mqsf/../backend/server.py")[0] == 404
     assert request(app, "GET", "/mqsf/.data/events.sqlite3")[0] == 404
