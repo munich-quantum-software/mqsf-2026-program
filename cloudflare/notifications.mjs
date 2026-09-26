@@ -64,8 +64,8 @@ export async function notifyChanges(env, limit = 1) {
   for (let count = 0; count < limit; count++) {
     const now = Math.floor(Date.now() / 1000), lease = now + 120;
     const change = await env.DB.prepare(`UPDATE event_changes SET notify_lease_until=?, notify_attempts=notify_attempts+1
-      WHERE id=(SELECT id FROM event_changes WHERE notified_at IS NULL AND notify_after<=? AND notify_lease_until<=?
-        ORDER BY created_at, rowid LIMIT 1) RETURNING *`).bind(lease, now, now).first();
+      WHERE id=(SELECT id FROM event_changes WHERE notified_at IS NULL ORDER BY created_at, rowid LIMIT 1)
+        AND notify_after<=? AND notify_lease_until<=? RETURNING *`).bind(lease, now, now).first();
     if (!change) return;
     let error = null, stage = "request", retry = Math.min(3600, 60 * 2 ** Math.min(change.notify_attempts - 1, 6));
     try {

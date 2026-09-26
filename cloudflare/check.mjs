@@ -97,6 +97,9 @@ try {
   await env.DB.prepare("DROP TRIGGER reject_history").run();
 
   const realFetch = globalThis.fetch, deliveries = [];
+  let releaseDelivery, sawDelivery;
+  const firstDelivery = new Promise(resolve => sawDelivery = resolve);
+  const resumeDelivery = new Promise(resolve => releaseDelivery = resolve);
   const notifyEnv = { ...env, DISCORD_WEBHOOK_URL: "https://discord.com/api/webhooks/123/test-only" };
   try {
     globalThis.fetch = async (url, options) => {
@@ -107,13 +110,20 @@ try {
       assert.ok(payload.embeds[0].title.includes("Meet-up"));
       assert.equal(payload.attachments, undefined);
       deliveries.push(payload.embeds[0]);
+      if (deliveries.length === 1) { sawDelivery(); await resumeDelivery; }
       return Response.json({ id: "discord-message" });
     };
     await notifyChanges(env); // No configured secret: leave the outbox untouched.
     assert.equal(deliveries.length, 0);
-    await Promise.all([notifyChanges(notifyEnv, 3), notifyChanges(notifyEnv, 3)]);
-    assert.equal(deliveries.length, 6);
-    assert.equal(new Set(deliveries.map(d => d.footer.text)).size, 6, "Concurrent drains must claim different changes");
+    const queued = (await env.DB.prepare("SELECT id FROM event_changes WHERE notified_at IS NULL ORDER BY created_at, rowid LIMIT 3").all()).results;
+    const firstRun = notifyChanges(notifyEnv, 3);
+    await firstDelivery;
+    try {
+      await notifyChanges(notifyEnv, 3);
+      assert.equal(deliveries.length, 1, "Later notifications must wait while the oldest is in flight");
+    } finally { releaseDelivery(); }
+    await firstRun;
+    assert.deepEqual(deliveries.map(d => d.footer.text), queued.map(row => `Private · Change ${row.id}`), "Send notifications in recorded order");
     assert.equal(deliveries[0].fields.find(field => field.name === "Contact email (private)").value, contact_email);
     let attempts = 0;
     globalThis.fetch = async () => { attempts++; return Response.json({ retry_after: 120, message: "Do not store response bodies" }, { status: 429 }); };
@@ -123,6 +133,8 @@ try {
     assert.equal(pending.notified_at, null);
     assert.equal(pending.notify_error, "Discord HTTP 429");
     assert.ok(pending.notify_after >= Math.floor(Date.now() / 1000) + 119);
+    await notifyChanges(notifyEnv);
+    assert.equal(attempts, 1, "Do not send later changes ahead of an earlier change awaiting retry");
     await env.DB.prepare("UPDATE event_changes SET notified_at='test' WHERE id!=?").bind(pending.id).run();
     await notifyChanges(notifyEnv);
     assert.equal(attempts, 1, "Respect retry backoff");

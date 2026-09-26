@@ -79,7 +79,8 @@ The local Python preview does **not** send Discord messages.
 
 Database triggers record every creation, update, and deletion atomically. The same rows form the delivery queue.
 The Worker attempts delivery after changes and checks pending rows every minute. Failures retry with backoff; the history is retained.
-A lease prevents concurrent sends of the same row. Delivery is at least once: a timeout or failure in a later message part can cause
+A lease on the oldest pending change keeps notifications in recorded order, including when edits happen in quick succession.
+Later changes wait if an earlier delivery is in progress or awaiting retry. Delivery is at least once: a timeout or failure in a later message part can cause
 previously delivered parts to repeat. Use the change ID and part number to identify duplicates. Failed deliveries and pending rows are visible with the moderation command below.
 If delivery repeatedly fails, check channel/webhook permissions and the `notify_error` status; response bodies are not logged.
 
