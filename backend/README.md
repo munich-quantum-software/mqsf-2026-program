@@ -17,7 +17,7 @@ From the repository root, with Python 3.10 or newer:
 python3 backend/server.py --demo --port 8030
 ```
 
-Open <http://127.0.0.1:8030/> for the main program and follow **Side events** to the calendar.
+Open <http://127.0.0.1:8030/> for the main program and follow **Meet-Ups** to the calendar.
 The calendar's direct link is <http://127.0.0.1:8030/#side-events>; the older `/mqsf/` and `/side-events/` links redirect there.
 The labelled sample events are kept in `.data/demo.sqlite3`.
 Stop the server with Ctrl+C. Without `--demo`, the app uses a separate, initially empty `.data/events.sqlite3`.

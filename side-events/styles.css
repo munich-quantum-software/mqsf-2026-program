@@ -17,9 +17,11 @@
 .side-events-ui a { color: inherit; text-underline-offset: 4px; }
 .side-events-ui :focus-visible { outline: 3px solid #4287d8; outline-offset: 3px; }
 .side-events-ui h1, .side-events-ui h2, .side-events-ui h3, .side-events-ui p { margin: 0; }
-.side-events-ui .intro { display: flex; align-items: center; justify-content: space-between; gap: 28px; color: #fff; }
-.side-events-ui .intro h2 { font-size: clamp(1.2rem, 2vw, 1.4rem); letter-spacing: -.03em; line-height: 1.2; margin-bottom: 8px; font-weight: 400; }
-.side-events-ui .intro-text { font-size: .9375rem; color: #aab5c3; }
+.side-events-ui .intro { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 20px 28px; color: #fff; }
+.side-events-ui .intro h2 { font-size: clamp(1.2rem, 2vw, 1.4rem); letter-spacing: -.03em; line-height: 1.3; font-weight: 600; }
+.side-events-ui .intro-text { grid-column: 1 / -1; font-size: .9375rem; line-height: 1.65; color: #aab5c3; }
+.side-events-ui .intro-text p + p { margin-top: 12px; }
+.side-events-ui .intro-text strong { color: #fff; font-weight: 600; }
 .side-events-ui .button { display: inline-flex; gap: 9px; align-items: center; justify-content: center; min-height: 46px; border: 1px solid transparent; padding: 10px 19px; font-weight: 400; font-size: .9375rem; white-space: nowrap; }
 .side-events-ui .button-add { color: #fff; background: var(--blue); border-radius: 3px; box-shadow: 0 4px 16px #0002; }
 .side-events-ui .button-add span { font-size: 1.5rem; line-height: 1; font-weight: 400; }
@@ -119,9 +121,8 @@
   .side-events-ui .event-title { font-size: .8125rem; -webkit-line-clamp: 1; }
 }
 @media (max-width: 700px) {
-  .side-events-ui .intro { display: block; }
-  .side-events-ui .intro-text { max-width: 32ch; }
-  .side-events-ui .button-add { margin-top: 24px; width: 100%; }
+  .side-events-ui .intro { grid-template-columns: minmax(0, 1fr); }
+  .side-events-ui .button-add { order: 1; width: 100%; }
   .side-events-ui .community-note { align-items: flex-start; margin: 16px 0 24px; }
   .side-events-ui .community-note svg { margin-top: 2px; }
   .side-events-ui .calendar-toolbar { padding: 16px; }
